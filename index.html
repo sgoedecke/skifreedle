@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Daily SkiFree</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div class="left">
+        <span>Finish</span>
+        <strong id="distance">--</strong>
+        <span>Speed</span>
+        <strong id="speed">0 km/h</strong>
+        <span>Time</span>
+        <strong id="score">0.00s</strong>
+        <span>Best</span>
+        <strong id="mult">--</strong>
+      </div>
+      <div class="right">
+        <button id="restart" title="Restart (R)">Restart</button>
+      </div>
+    </div>
+    <div id="overlay" class="show">
+      <div class="panel">
+        <h1>Daily SkiFree</h1>
+        <p>Tap Left/Right or A/D to snap through SkiFree directions. S points downhill, W stops, F boosts.</p>
+        <p>Reach today&apos;s finish gate in about 10 seconds without crashing. Miss the gate and the yeti will hunt you down.</p>
+        <button data-action="play">Start Today&apos;s Run</button>
+      </div>
+    </div>
+    <script src="game.js"></script>
+  </body>
+</html>
