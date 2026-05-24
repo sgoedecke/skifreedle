@@ -16,7 +16,6 @@
     h: canvas.height / (window.devicePixelRatio || 1),
   });
   const COURSE_LENGTH = 3900;
-  const TARGET_TIME = 10;
   const FINISH_GATE_WIDTH = 150;
   const RUN_STORAGE_KEY = 'skifreedle-daily-run-v1';
 
@@ -194,7 +193,6 @@
       finishY: COURSE_LENGTH,
       finishX: 0,
       finishWidth: FINISH_GATE_WIDTH,
-      targetTime: TARGET_TIME,
       bestTime: null,
     },
     player: {
@@ -330,7 +328,6 @@
         finishY: course.finishY,
         finishX: course.finishX,
         finishWidth: course.finishWidth,
-        targetTime: course.targetTime,
         bestTime: course.bestTime,
       },
     });
@@ -439,7 +436,6 @@
       finishY,
       finishX,
       finishWidth,
-      targetTime: TARGET_TIME,
       bestTime,
       objects,
     };
@@ -571,17 +567,18 @@
     const buttons = State.isPractice
       ? `
         <button data-action="share">Share 🎿</button>
+        <button data-action="play">Try Again</button>
         <button data-action="practice">New Practice</button>
       `
       : `
         <button data-action="share">Share 🎿</button>
-        <button data-action="practice">Practice</button>
         <button data-action="play">Try Again</button>
+        <button data-action="practice">Practice</button>
       `;
     overlay.querySelector('.panel').innerHTML = `
       <h1>Finished!</h1>
       <p>${runLabel}: ${formatTime(State.elapsed)} in ${State.attempts} ${attemptLabel(State.attempts)} ${isBest ? '(best)' : ''}</p>
-      <p>Target: ${formatTime(course.targetTime)} &nbsp; Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
+      <p>Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
       ${refreshLine}
       ${buttons}
       <p class="share-status" data-share-status></p>
@@ -1000,7 +997,6 @@
       finishY: course.finishY,
       finishX: course.finishX,
       finishWidth: course.finishWidth,
-      targetTime: course.targetTime,
       bestTime: course.bestTime,
     };
     State.objects = course.objects;
