@@ -69,10 +69,10 @@
   ];
   const SOUTH_INDEX = 3;
 
-  function localDateKey(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+  function utcDateKey(date = new Date()) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 
@@ -103,9 +103,9 @@
     return `${seconds.toFixed(2)}s`;
   }
 
-  function msUntilTomorrow(date = new Date()) {
-    const tomorrow = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    return Math.max(0, tomorrow.getTime() - date.getTime());
+  function msUntilUtcTomorrow(date = new Date()) {
+    const tomorrow = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+    return Math.max(0, tomorrow - date.getTime());
   }
 
   function formatCountdown(ms) {
@@ -125,7 +125,7 @@
     return clamp(width * 0.5 + wave * courseWidth, margin + edgeBuffer, width - margin - edgeBuffer);
   }
 
-  function readStoredRun(dateKey = localDateKey()) {
+  function readStoredRun(dateKey = utcDateKey()) {
     if (typeof localStorage === 'undefined') return null;
 
     try {
@@ -355,7 +355,7 @@
 
   function reset({ practice = false } = {}) {
     const { w, h } = viewport();
-    const dateKey = practice ? 'practice' : localDateKey();
+    const dateKey = practice ? 'practice' : utcDateKey();
     const storedRun = practice ? null : readStoredRun(dateKey);
     const sameDaily = !practice && State.course.dateKey === dateKey;
     const samePractice = practice && State.isPractice;
@@ -620,7 +620,7 @@
     const runLabel = State.isPractice ? 'Practice' : `Daily ${course.dateKey}`;
     const refreshLine = State.isPractice
       ? ''
-      : `<p>Refreshes in <strong data-refreshes-in>${formatCountdown(msUntilTomorrow())}</strong></p>`;
+      : `<p>Refreshes in <strong data-refreshes-in>${formatCountdown(msUntilUtcTomorrow())}</strong></p>`;
     const buttons = State.isPractice
       ? `
         <button data-action="share">Share 🎿</button>
@@ -808,7 +808,7 @@
 
   function updateRefreshCountdown() {
     const target = overlay.querySelector('[data-refreshes-in]');
-    if (target) target.textContent = formatCountdown(msUntilTomorrow());
+    if (target) target.textContent = formatCountdown(msUntilUtcTomorrow());
   }
 
   function worldToScreenY(y) {
@@ -1043,7 +1043,7 @@
 
   function initializeDailyState() {
     const { w } = viewport();
-    const dateKey = localDateKey();
+    const dateKey = utcDateKey();
     const storedRun = readStoredRun(dateKey);
     const course = createDailyCourse(w, dateKey, storedRun?.bestTime ?? null);
 
