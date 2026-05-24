@@ -206,8 +206,6 @@
       directionIndex: SOUTH_INDEX,
       lastSide: 1,
       speed: 130,
-      boostTimer: 0,
-      boostCooldown: 0,
       z: 0,
       vz: 0,
       airborne: false,
@@ -267,13 +265,6 @@
     const p = State.player;
     if (p.airborne || p.iceTimer > 0 || State.gameOver) return;
     p.directionIndex = p.directionIndex < SOUTH_INDEX || p.lastSide < 0 ? 0 : DIRECTIONS.length - 1;
-  }
-
-  function speedBoost() {
-    const p = State.player;
-    if (p.boostCooldown > 0 || State.gameOver) return;
-    p.boostTimer = 1.2;
-    p.boostCooldown = 4.5;
   }
 
   function runControlAction(action) {
@@ -352,7 +343,6 @@
     if (key === 'arrowright' || key === 'd') turnEast();
     if (key === 'arrowdown' || key === 's') pointDownhill();
     if (key === 'arrowup' || key === 'w') stopAcrossSlope();
-    if (key === 'f') speedBoost();
   });
   canvas.addEventListener('pointerdown', startTouchControl);
   canvas.addEventListener('pointermove', moveTouchControl);
@@ -410,8 +400,6 @@
       directionIndex: SOUTH_INDEX,
       lastSide: 1,
       speed: 130,
-      boostTimer: 0,
-      boostCooldown: 0,
       z: 0,
       vz: 0,
       airborne: false,
@@ -526,15 +514,10 @@
     const ice = onIce ? 1.28 : 1;
     const downhill = dir.y;
     const airScale = p.airborne ? 0.3 : 1;
-    const boost = p.boostTimer > 0 ? 1.65 : 1;
     const edgeDrag = onIce ? 0.04 : (1 - downhill) * 1.15;
     const drag = (onIce ? 0.08 : 0.32 + edgeDrag) * p.speed;
-    const accel = (180 * Math.max(0.1, downhill) * boost - drag) * airScale;
-    const cap = p.boostTimer > 0 ? 620 : 500;
-    p.speed = clamp(p.speed + accel * dt, 42, cap);
-
-    if (p.boostTimer > 0) p.boostTimer = Math.max(0, p.boostTimer - dt);
-    if (p.boostCooldown > 0) p.boostCooldown = Math.max(0, p.boostCooldown - dt);
+    const accel = (180 * Math.max(0.1, downhill) - drag) * airScale;
+    p.speed = clamp(p.speed + accel * dt, 42, 500);
 
     if (p.iceTimer > 0) p.iceTimer = Math.max(0, p.iceTimer - dt);
 
@@ -735,7 +718,6 @@
           if (!object.used) {
             object.used = true;
             p.speed = Math.max(55, p.speed * 0.45);
-            p.boostTimer = 0;
             addBonus('mogul!', object.x, object.y - 12);
           }
         }
