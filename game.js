@@ -627,12 +627,12 @@
     const buttons = State.isPractice
       ? `
         <button data-action="share">Share 🎿</button>
-        <button data-action="play">Try Again</button>
+        <button data-action="play">Try again (space)</button>
         <button data-action="practice">New Practice</button>
       `
       : `
         <button data-action="share">Share 🎿</button>
-        <button data-action="play">Try Again</button>
+        <button data-action="play">Try again (space)</button>
         <button data-action="practice">Practice</button>
       `;
     overlay.querySelector('.panel').innerHTML = `
@@ -694,7 +694,7 @@
       <p>${State.isPractice ? 'Practice' : `Daily ${course.dateKey}`}: crashed at ${formatTime(State.elapsed)}</p>
       <p>${State.missedFinish ? 'You missed the finish gate and the yeti caught you.' : 'Reach the finish gate without hitting anything.'}</p>
       <p>Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
-      <button data-action="play">Try Again</button>
+      <button data-action="play">Try again (space)</button>
     `;
     overlay.classList.add('show');
   }
