@@ -576,7 +576,7 @@
 
   function shareText() {
     return [
-      `🎿 SkiFreedle.com ${State.isPractice ? 'practice' : State.course.dateKey}`,
+      `🎿 https://skifreedle.com/ ${State.isPractice ? 'practice' : State.course.dateKey}`,
       `${formatTime(State.elapsed)} in ${State.attempts} ${attemptLabel(State.attempts)}`,
     ].join('\n');
   }
