@@ -2,6 +2,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   background: #f2f8ff;
   color: #102942;
@@ -11,7 +12,7 @@ body {
 #game {
   display: block;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: #fff;
   touch-action: none;
   image-rendering: crisp-edges;

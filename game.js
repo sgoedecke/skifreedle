@@ -6,7 +6,6 @@
   const multEl = document.getElementById('mult');
   const speedEl = document.getElementById('speed');
   const overlay = document.getElementById('overlay');
-  const restartBtn = document.getElementById('restart');
 
   const TAU = Math.PI * 2;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -14,6 +13,10 @@
   const viewport = () => ({
     w: canvas.width / (window.devicePixelRatio || 1),
     h: canvas.height / (window.devicePixelRatio || 1),
+  });
+  const visibleViewport = () => ({
+    w: Math.floor(window.visualViewport?.width || window.innerWidth),
+    h: Math.floor(window.visualViewport?.height || window.innerHeight),
   });
   const COURSE_LENGTH = 3900;
   const FINISH_GATE_WIDTH = 150;
@@ -216,8 +219,7 @@
 
   function resize() {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    const w = Math.floor(window.innerWidth);
-    const h = Math.floor(window.innerHeight);
+    const { w, h } = visibleViewport();
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     canvas.width = Math.floor(w * dpr);
@@ -231,6 +233,7 @@
   }
 
   window.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('resize', resize);
   resize();
 
   function turnWest() {
@@ -287,8 +290,8 @@
   };
 
   function touchActionFromEvent(event) {
-    const fallback = { left: 0, top: 0, width: viewport().w, height: viewport().h };
-    const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : fallback;
+    const visible = visibleViewport();
+    const rect = { left: 0, top: 0, width: visible.w, height: visible.h };
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     const dx = x - rect.width * 0.5;
@@ -344,7 +347,6 @@
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'spacebar'].includes(key)) {
       event.preventDefault();
     }
-    if (key === 'r') reset({ practice: State.isPractice });
     if ((key === ' ' || key === 'spacebar') && !State.running) reset({ practice: State.isPractice });
     if (key === 'arrowleft' || key === 'a') turnWest();
     if (key === 'arrowright' || key === 'd') turnEast();
@@ -362,7 +364,6 @@
     if (event.target.dataset.action === 'practice') reset({ practice: true });
     if (event.target.dataset.action === 'share') shareFinishedRun(event.target);
   });
-  restartBtn?.addEventListener('click', () => reset({ practice: State.isPractice }));
 
   function reset({ practice = false } = {}) {
     const { w, h } = viewport();
