@@ -294,11 +294,11 @@
     const rect = { left: 0, top: 0, width: visible.w, height: visible.h };
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const dx = x - rect.width * 0.5;
-    const dy = y - rect.height * 0.5;
+    const column = x / rect.width;
 
-    if (Math.abs(dy) > Math.abs(dx) * 1.15) return dy > 0 ? 'down' : 'stop';
-    return dx < 0 ? 'west' : 'east';
+    if (column < 1 / 3) return 'west';
+    if (column > 2 / 3) return 'east';
+    return y > rect.height * 0.5 ? 'down' : 'stop';
   }
 
   function startTouchControl(event) {
