@@ -18,6 +18,8 @@
   const COURSE_LENGTH = 3900;
   const FINISH_GATE_WIDTH = 150;
   const RUN_STORAGE_KEY = 'skifreedle-daily-run-v1';
+  const MOBILE_COURSE_BREAKPOINT = 640;
+  const TOUCH_REPEAT_MS = 170;
 
   const sheets = {
     characters: new Image(),
@@ -271,6 +273,72 @@
     p.boostCooldown = 4.5;
   }
 
+  function runControlAction(action) {
+    if (action === 'west') turnWest();
+    if (action === 'east') turnEast();
+    if (action === 'down') pointDownhill();
+    if (action === 'stop') stopAcrossSlope();
+  }
+
+  const touchControl = {
+    pointerId: null,
+    action: null,
+    lastRepeat: 0,
+  };
+
+  function touchActionFromEvent(event) {
+    const fallback = { left: 0, top: 0, width: viewport().w, height: viewport().h };
+    const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : fallback;
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const dx = x - rect.width * 0.5;
+    const dy = y - rect.height * 0.5;
+
+    if (Math.abs(dy) > Math.abs(dx) * 1.15) return dy > 0 ? 'down' : 'stop';
+    return dx < 0 ? 'west' : 'east';
+  }
+
+  function startTouchControl(event) {
+    if (event.pointerType === 'mouse') return;
+    if (!State.running) return;
+
+    event.preventDefault();
+    touchControl.pointerId = event.pointerId;
+    touchControl.action = touchActionFromEvent(event);
+    touchControl.lastRepeat = performance.now();
+    canvas.setPointerCapture?.(event.pointerId);
+    runControlAction(touchControl.action);
+  }
+
+  function moveTouchControl(event) {
+    if (event.pointerId !== touchControl.pointerId) return;
+
+    event.preventDefault();
+    const action = touchActionFromEvent(event);
+    if (action !== touchControl.action) {
+      touchControl.action = action;
+      touchControl.lastRepeat = performance.now();
+      runControlAction(action);
+    }
+  }
+
+  function stopTouchControl(event) {
+    if (event.pointerId !== touchControl.pointerId) return;
+
+    canvas.releasePointerCapture?.(event.pointerId);
+    touchControl.pointerId = null;
+    touchControl.action = null;
+  }
+
+  function updateTouchRepeat(now) {
+    if (!State.running || !touchControl.action) return;
+    if (touchControl.action !== 'west' && touchControl.action !== 'east') return;
+    if (now - touchControl.lastRepeat < TOUCH_REPEAT_MS) return;
+
+    touchControl.lastRepeat = now;
+    runControlAction(touchControl.action);
+  }
+
   window.addEventListener('keydown', (event) => {
     const key = event.key.toLowerCase();
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'spacebar'].includes(key)) {
@@ -284,6 +352,10 @@
     if (key === 'arrowup' || key === 'w') stopAcrossSlope();
     if (key === 'f') speedBoost();
   });
+  canvas.addEventListener('pointerdown', startTouchControl);
+  canvas.addEventListener('pointermove', moveTouchControl);
+  canvas.addEventListener('pointerup', stopTouchControl);
+  canvas.addEventListener('pointercancel', stopTouchControl);
   overlay.addEventListener('click', (event) => {
     if (!(event.target instanceof HTMLButtonElement)) return;
     if (event.target.dataset.action === 'play') reset({ practice: State.isPractice });
@@ -350,6 +422,10 @@
   }
 
   function terrainMarginForWidth(width) {
+    if (width <= MOBILE_COURSE_BREAKPOINT) {
+      return Math.max(8, Math.min(16, width * 0.03));
+    }
+
     const oldMargin = Math.max(34, Math.min(72, width * 0.06));
     const oldCourseWidth = width - oldMargin * 2;
     const narrowedWidth = Math.max(120, oldCourseWidth / 3);
@@ -802,17 +878,20 @@
     }
 
     const margin = terrainMargin();
-    ctx.fillStyle = '#eef7ff';
-    ctx.fillRect(0, 0, margin - 16, h);
-    ctx.fillRect(w - margin + 16, 0, margin, h);
-    ctx.strokeStyle = '#d9eafd';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(margin - 16, 0);
-    ctx.lineTo(margin - 16, h);
-    ctx.moveTo(w - margin + 16, 0);
-    ctx.lineTo(w - margin + 16, h);
-    ctx.stroke();
+    const edgeWidth = Math.max(0, margin - 16);
+    if (edgeWidth > 0) {
+      ctx.fillStyle = '#eef7ff';
+      ctx.fillRect(0, 0, edgeWidth, h);
+      ctx.fillRect(w - edgeWidth, 0, edgeWidth, h);
+      ctx.strokeStyle = '#d9eafd';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(edgeWidth, 0);
+      ctx.lineTo(edgeWidth, h);
+      ctx.moveTo(w - edgeWidth, 0);
+      ctx.lineTo(w - edgeWidth, h);
+      ctx.stroke();
+    }
   }
 
   function drawTracks() {
@@ -979,6 +1058,7 @@
   function frame(now) {
     const dt = Math.min(0.033, Math.max(0, (now - last) / 1000));
     last = now;
+    updateTouchRepeat(now);
     if (State.running) update(dt);
     render();
     updateRefreshCountdown();
