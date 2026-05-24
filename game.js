@@ -1,7 +1,6 @@
 (() => {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const distanceEl = document.getElementById('distance');
   const scoreEl = document.getElementById('score');
   const multEl = document.getElementById('mult');
   const speedEl = document.getElementById('speed');
@@ -182,7 +181,6 @@
     time: 0,
     elapsed: 0,
     cameraY: -160,
-    distance: 0,
     crashReason: 'Wipeout!',
     objects: [],
     tracks: [],
@@ -375,7 +373,6 @@
       time: 0,
       elapsed: 0,
       cameraY: -h * 0.34,
-      distance: 0,
       crashReason: 'Wipeout!',
       objects: course.objects,
       tracks: [],
@@ -796,9 +793,6 @@
     const { h } = viewport();
     const targetCameraY = State.player.y - h * 0.34;
     State.cameraY = lerp(State.cameraY, targetCameraY, clamp(dt * 8, 0, 1));
-    const remaining = Math.max(0, Math.ceil((State.course.finishY - State.player.y) / 4));
-    State.distance = remaining;
-
     const downhillSpeed = State.player.speed * DIRECTIONS[State.player.directionIndex].y;
     updateObjects(dt);
     updateFinishState();
@@ -807,7 +801,6 @@
     for (const bonus of State.bonuses) bonus.age += dt;
     State.bonuses = State.bonuses.filter((bonus) => bonus.age < 1.15);
 
-    distanceEl.textContent = `${remaining} m`;
     scoreEl.textContent = formatTime(State.elapsed);
     multEl.textContent = State.course.bestTime === null ? '--' : formatTime(State.course.bestTime);
     if (speedEl) speedEl.textContent = `${Math.floor(downhillSpeed / 3)} km/h`;
@@ -1075,7 +1068,6 @@
     }
   }
 
-  distanceEl.textContent = '--';
   scoreEl.textContent = '0.00s';
   multEl.textContent = '--';
   if (speedEl) speedEl.textContent = '0 km/h';
