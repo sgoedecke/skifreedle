@@ -9,9 +9,10 @@
   const TAU = Math.PI * 2;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const lerp = (from, to, amount) => from + (to - from) * amount;
+  let canvasScale = 1;
   const viewport = () => ({
-    w: canvas.width / (window.devicePixelRatio || 1),
-    h: canvas.height / (window.devicePixelRatio || 1),
+    w: canvas.width / canvasScale,
+    h: canvas.height / canvasScale,
   });
   const visibleViewport = () => ({
     w: Math.floor(window.visualViewport?.width || window.innerWidth),
@@ -216,6 +217,7 @@
   function resize() {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     const { w, h } = visibleViewport();
+    canvasScale = dpr;
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
     canvas.width = Math.floor(w * dpr);
