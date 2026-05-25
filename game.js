@@ -467,6 +467,24 @@
       const baseCount = 2 + Math.floor(progress * 3) + (rng() < 0.45 ? 1 : 0);
       const count = baseCount * 2;
 
+      if (rng() < 0.18) {
+        const type = rng() < 0.65 ? 'thickSnow' : 'jump';
+        const r = objectRadius(type, rng);
+        const frame = FRAMES.objects[type];
+        objects.push({
+          type,
+          x: mapCourseX(clamp(safeRatio + seededRand(rng, -0.035, 0.035), 0, 1), width),
+          y: y + seededRand(rng, -24, 18),
+          r,
+          spriteW: frame ? frame[2] : undefined,
+          spriteH: frame ? frame[3] : undefined,
+          w: r * seededRand(rng, 1.4, 2.0),
+          h: r * seededRand(rng, 1.0, 1.4),
+          used: false,
+          scored: false,
+        });
+      }
+
       for (let i = 0; i < count; i += 1) {
         let xRatio = safeRatio;
         for (let attempt = 0; attempt < 14; attempt += 1) {
