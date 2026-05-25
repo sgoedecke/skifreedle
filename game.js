@@ -23,8 +23,6 @@
   const RUN_STORAGE_KEY = 'skifreedle-daily-run-v1';
   const MOBILE_COURSE_BREAKPOINT = 640;
   const TOUCH_REPEAT_MS = 170;
-  const EMPTY_OBSTACLE_CHANCE = 0.166;
-  const MIN_TREE_CHANCE = 0.22;
 
   const sheets = {
     characters: new Image(),
@@ -441,39 +439,9 @@
     return seededRand(rng, 28, 46);
   }
 
-  function createObstacleProfile(seed) {
-    const rng = createRng((seed ^ 0x9E3779B9) >>> 0);
-    const categories = ['rock', 'thickSnow', 'jump', 'ice'];
-    const scores = categories.map(() => seededRand(rng, 0.45, 1.35));
-    const featured = Math.floor(rng() * categories.length);
-    scores[featured] *= seededRand(rng, 3.4, 4.4);
-
-    const variableChance = 1 - EMPTY_OBSTACLE_CHANCE - MIN_TREE_CHANCE;
-    const scoreTotal = scores.reduce((sum, score) => sum + score, 0);
-    let cumulative = MIN_TREE_CHANCE;
-    return [
-      { type: 'tree', threshold: cumulative },
-      ...categories.map((type, index) => {
-      cumulative += (scores[index] / scoreTotal) * variableChance;
-      return { type, threshold: cumulative };
-      }),
-    ];
-  }
-
-  function pickObstacleType(roll, profile, rng) {
-    for (const entry of profile) {
-      if (roll < entry.threshold) {
-        if (entry.type === 'tree') return rng() < 0.74 ? 'smallTree' : 'tallTree';
-        return entry.type;
-      }
-    }
-    return null;
-  }
-
   function createDailyCourse(width, dateKey, bestTime, seedOverride) {
     const seed = typeof seedOverride === 'number' ? seedOverride >>> 0 : hashString(dateKey);
     const rng = createRng(seed);
-    const obstacleProfile = createObstacleProfile(seed);
     const margin = terrainMargin();
     const courseWidth = width - margin * 2;
     const finishY = COURSE_LENGTH;
@@ -508,7 +476,14 @@
         }
         if (Math.abs(xRatio - safeRatio) <= safeGapRatio) continue;
 
-        const type = pickObstacleType(rng(), obstacleProfile, rng);
+        const roll = rng();
+        let type = null;
+        if (roll < 0.3725) type = 'smallTree';
+        else if (roll < 0.501) type = 'tallTree';
+        else if (roll < 0.621) type = 'rock';
+        else if (roll < 0.736) type = 'thickSnow';
+        else if (roll < 0.7945) type = 'jump';
+        else if (roll < 0.834) type = 'ice';
         if (!type) continue;
 
         const r = objectRadius(type, rng);
