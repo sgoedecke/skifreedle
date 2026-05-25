@@ -117,13 +117,19 @@
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  function courseCenter(y, width, seed) {
-    const margin = terrainMarginForWidth(width);
-    const courseWidth = width - margin * 2;
+  function courseCenterRatio(y, seed) {
     const phase = (seed % 6283) / 1000;
     const wave = Math.sin(y * 0.0044 + phase) * 0.27 + Math.sin(y * 0.0102 + phase * 0.53) * 0.11;
-    const edgeBuffer = Math.min(34, courseWidth * 0.16);
-    return clamp(width * 0.5 + wave * courseWidth, margin + edgeBuffer, width - margin - edgeBuffer);
+    return clamp(0.5 + wave, 0.16, 0.84);
+  }
+
+  function mapCourseX(ratio, width) {
+    const margin = terrainMarginForWidth(width);
+    return margin + clamp(ratio, 0, 1) * (width - margin * 2);
+  }
+
+  function courseCenter(y, width, seed) {
+    return mapCourseX(courseCenterRatio(y, seed), width);
   }
 
   function readStoredRun(dateKey = utcDateKey()) {
@@ -439,7 +445,7 @@
     const margin = terrainMargin();
     const courseWidth = width - margin * 2;
     const finishY = COURSE_LENGTH;
-    const finishX = courseCenter(finishY, width, seed);
+    const finishX = mapCourseX(courseCenterRatio(finishY, seed), width);
     const finishWidth = Math.min(FINISH_GATE_WIDTH, Math.max(76, courseWidth * 0.64));
     const objects = [
       { type: 'start', x: width * 0.5, y: 8, r: 14 },
@@ -456,18 +462,19 @@
 
     for (let y = 280; y < finishY - 210; y += seededRand(rng, 82, 128)) {
       const progress = y / finishY;
-      const safeX = courseCenter(y, width, seed);
-      const safeGap = Math.max(34, Math.min(62, courseWidth * 0.22 + progress * 10));
+      const safeRatio = courseCenterRatio(y, seed);
+      const safeX = mapCourseX(safeRatio, width);
+      const safeGapRatio = 0.22 + progress * 0.04;
       const baseCount = 2 + Math.floor(progress * 3) + (rng() < 0.45 ? 1 : 0);
-      const count = Math.min(baseCount * 2, Math.max(4, Math.floor(courseWidth / 24)));
+      const count = baseCount * 2;
 
       for (let i = 0; i < count; i += 1) {
-        let x = safeX;
+        let xRatio = safeRatio;
         for (let attempt = 0; attempt < 14; attempt += 1) {
-          x = seededRand(rng, margin, width - margin);
-          if (Math.abs(x - safeX) > safeGap) break;
+          xRatio = seededRand(rng, 0, 1);
+          if (Math.abs(xRatio - safeRatio) > safeGapRatio) break;
         }
-        if (Math.abs(x - safeX) <= safeGap) continue;
+        if (Math.abs(xRatio - safeRatio) <= safeGapRatio) continue;
 
         const roll = rng();
         let type = 'smallTree';
@@ -481,7 +488,7 @@
         const frame = FRAMES.objects[type];
         objects.push({
           type,
-          x,
+          x: mapCourseX(xRatio, width),
           y: y + seededRand(rng, -18, 18),
           r,
           spriteW: frame ? frame[2] : undefined,
