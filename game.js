@@ -477,12 +477,14 @@
         if (Math.abs(xRatio - safeRatio) <= safeGapRatio) continue;
 
         const roll = rng();
-        let type = 'smallTree';
-        if (roll > 0.58) type = 'tallTree';
-        if (roll > 0.78) type = 'rock';
-        if (roll > 0.88) type = 'thickSnow';
-        if (roll > 0.94) type = 'jump';
-        if (roll > 0.985) type = 'ice';
+        let type = null;
+        if (roll < 0.406) type = 'smallTree';
+        else if (roll < 0.546) type = 'tallTree';
+        else if (roll < 0.666) type = 'rock';
+        else if (roll < 0.756) type = 'thickSnow';
+        else if (roll < 0.8145) type = 'jump';
+        else if (roll < 0.834) type = 'ice';
+        if (!type) continue;
 
         const r = objectRadius(type, rng);
         const frame = FRAMES.objects[type];
