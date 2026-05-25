@@ -683,7 +683,7 @@
     State.yeti = {
       x: State.course.finishX,
       y: p.y - 150,
-      speed: Math.max(650, p.speed + 260),
+      speed: Math.max(455, p.speed + 182),
     };
     addBonus('missed finish!', p.x, p.y - 40);
   }
@@ -770,7 +770,7 @@
     const dx = p.x - y.x;
     const dy = p.y - y.y;
     const dist = Math.max(1, Math.hypot(dx, dy));
-    y.speed = Math.min(920, y.speed + dt * 180);
+    y.speed = Math.min(644, y.speed + dt * 126);
     y.x += (dx / dist) * y.speed * dt;
     y.y += (dy / dist) * y.speed * dt;
 
