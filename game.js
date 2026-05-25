@@ -24,6 +24,7 @@
   const MOBILE_COURSE_BREAKPOINT = 640;
   const TOUCH_REPEAT_MS = 170;
   const EMPTY_OBSTACLE_CHANCE = 0.166;
+  const MIN_TREE_CHANCE = 0.22;
 
   const sheets = {
     characters: new Image(),
@@ -442,17 +443,21 @@
 
   function createObstacleProfile(seed) {
     const rng = createRng((seed ^ 0x9E3779B9) >>> 0);
-    const categories = ['tree', 'rock', 'thickSnow', 'jump', 'ice'];
+    const categories = ['rock', 'thickSnow', 'jump', 'ice'];
     const scores = categories.map(() => seededRand(rng, 0.45, 1.35));
     const featured = Math.floor(rng() * categories.length);
     scores[featured] *= seededRand(rng, 3.4, 4.4);
 
+    const variableChance = 1 - EMPTY_OBSTACLE_CHANCE - MIN_TREE_CHANCE;
     const scoreTotal = scores.reduce((sum, score) => sum + score, 0);
-    let cumulative = 0;
-    return categories.map((type, index) => {
-      cumulative += (scores[index] / scoreTotal) * (1 - EMPTY_OBSTACLE_CHANCE);
+    let cumulative = MIN_TREE_CHANCE;
+    return [
+      { type: 'tree', threshold: cumulative },
+      ...categories.map((type, index) => {
+      cumulative += (scores[index] / scoreTotal) * variableChance;
       return { type, threshold: cumulative };
-    });
+      }),
+    ];
   }
 
   function pickObstacleType(roll, profile, rng) {
