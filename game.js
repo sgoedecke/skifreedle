@@ -463,7 +463,7 @@
     for (let y = 280; y < finishY - 210; y += seededRand(rng, 82, 128)) {
       const progress = y / finishY;
       const safeRatio = courseCenterRatio(y, seed);
-      const safeGapRatio = 0.17 + progress * 0.03;
+      const safeGapRatio = 0.145 + progress * 0.025;
       const baseCount = 2 + Math.floor(progress * 3) + (rng() < 0.45 ? 1 : 0);
       const count = baseCount * 2;
 
