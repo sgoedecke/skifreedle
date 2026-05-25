@@ -463,8 +463,7 @@
     for (let y = 280; y < finishY - 210; y += seededRand(rng, 82, 128)) {
       const progress = y / finishY;
       const safeRatio = courseCenterRatio(y, seed);
-      const safeX = mapCourseX(safeRatio, width);
-      const safeGapRatio = 0.22 + progress * 0.04;
+      const safeGapRatio = 0.17 + progress * 0.03;
       const baseCount = 2 + Math.floor(progress * 3) + (rng() < 0.45 ? 1 : 0);
       const count = baseCount * 2;
 
@@ -478,12 +477,12 @@
 
         const roll = rng();
         let type = null;
-        if (roll < 0.3725) type = 'smallTree';
-        else if (roll < 0.501) type = 'tallTree';
-        else if (roll < 0.621) type = 'rock';
-        else if (roll < 0.736) type = 'thickSnow';
-        else if (roll < 0.7945) type = 'jump';
-        else if (roll < 0.834) type = 'ice';
+        if (roll < 0.402) type = 'smallTree';
+        else if (roll < 0.541) type = 'tallTree';
+        else if (roll < 0.6705) type = 'rock';
+        else if (roll < 0.7945) type = 'thickSnow';
+        else if (roll < 0.8575) type = 'jump';
+        else if (roll < 0.9) type = 'ice';
         if (!type) continue;
 
         const r = objectRadius(type, rng);
