@@ -158,16 +158,20 @@
       if (!parsed || parsed.dateKey !== dateKey) return null;
 
       const elapsed = Number(parsed.elapsed);
-      const bestTime = Number(parsed.bestTime);
-      const ghost = normalizeStoredGhost(parsed.ghost);
+      const rawBestTime = Number(parsed.bestTime);
+      const bestTime = Number.isFinite(rawBestTime) ? rawBestTime : Number.isFinite(elapsed) ? elapsed : null;
+      const ghostBestTime = Number(parsed.ghostBestTime);
+      const rawGhost = normalizeStoredGhost(parsed.ghost);
+      const ghost = storedGhostMatchesBest(rawGhost, bestTime, ghostBestTime) ? rawGhost : null;
       return {
         dateKey: parsed.dateKey,
         seed: Number(parsed.seed) >>> 0,
         attempts: Math.max(0, Number(parsed.attempts) || 0),
         finished: Boolean(parsed.finished),
         elapsed: Number.isFinite(elapsed) ? elapsed : null,
-        bestTime: Number.isFinite(bestTime) ? bestTime : Number.isFinite(elapsed) ? elapsed : null,
+        bestTime,
         ghost,
+        ghostBestTime: ghost ? bestTime : null,
       };
     } catch (error) {
       console.warn('Could not read SkiFreedle daily run from localStorage:', error);
@@ -191,6 +195,16 @@
 
     if (duration <= 0) return null;
     return { duration, actions };
+  }
+
+  function storedGhostMatchesBest(ghost, bestTime, ghostBestTime) {
+    if (!ghost) return false;
+    if (!Number.isFinite(bestTime)) return true;
+    if (Number.isFinite(ghostBestTime)) return Math.abs(ghostBestTime - bestTime) < 0.005;
+
+    // Legacy migration: older builds saved the latest ghost without tagging it.
+    // Only keep it if its replay duration lines up with the saved best time.
+    return Math.abs(ghost.duration - Math.round(bestTime * 1000)) <= 150;
   }
 
   function currentRunGhostPayload() {
@@ -225,6 +239,7 @@
     const existingBest = existingRun?.bestTime;
     const isBestGhost = State.finished && currentGhost && (existingBest === null || typeof existingBest === 'undefined' || State.elapsed <= existingBest);
     const ghost = isBestGhost ? currentGhost : existingGhost;
+    const ghostBestTime = isBestGhost ? State.elapsed : existingRun?.ghostBestTime ?? null;
     const payload = {
       dateKey: State.course.dateKey,
       seed: State.course.seed,
@@ -233,6 +248,7 @@
       elapsed: finishedElapsed,
       bestTime: State.course.bestTime ?? existingRun?.bestTime ?? null,
       ghost,
+      ghostBestTime,
       updatedAt: new Date().toISOString(),
     };
 
