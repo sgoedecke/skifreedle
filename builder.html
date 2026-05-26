@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SkiFreedle Builder</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="builder-page">
+    <main class="builder-shell">
+      <section class="builder-toolbar" aria-label="Course builder controls">
+        <h1>SkiFreedle Builder</h1>
+        <p>Pick a tool, then click the course to place it. Use Finish to move the gate.</p>
+        <div class="tool-row">
+          <button data-tool="tree" class="selected">Tree</button>
+          <button data-tool="rock">Rock</button>
+          <button data-tool="mogul">Mogul</button>
+          <button data-tool="lake">Lake</button>
+          <button data-tool="jump">Jump</button>
+          <button data-tool="finish">Finish</button>
+          <button data-tool="erase">Erase</button>
+        </div>
+        <div class="tool-row">
+          <button id="copy-link">Copy playable link</button>
+          <button id="test-course">Test course</button>
+          <button id="clear-course">Clear</button>
+        </div>
+        <input id="course-link" readonly aria-label="Playable course link" />
+        <p id="builder-status" class="share-status"></p>
+      </section>
+      <canvas id="builder-canvas"></canvas>
+    </main>
+    <script src="course-codec.js"></script>
+    <script src="builder.js"></script>
+  </body>
+</html>

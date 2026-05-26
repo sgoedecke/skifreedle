@@ -23,6 +23,20 @@
   const RUN_STORAGE_KEY = 'skifreedle-daily-run-v1';
   const MOBILE_COURSE_BREAKPOINT = 640;
   const TOUCH_REPEAT_MS = 170;
+  const CUSTOM_TYPE_MAP = {
+    tree: 'smallTree',
+    rock: 'rock',
+    mogul: 'thickSnow',
+    lake: 'ice',
+    jump: 'jump',
+  };
+  const FIXED_OBJECTS = {
+    smallTree: { r: 16, w: 25, h: 32 },
+    rock: { r: 11, w: 23, h: 11 },
+    thickSnow: { r: 14, w: 43, h: 10 },
+    ice: { r: 34, w: 92, h: 34 },
+    jump: { r: 18, w: 32, h: 8 },
+  };
 
   const sheets = {
     characters: new Image(),
@@ -128,10 +142,6 @@
     return margin + clamp(ratio, 0, 1) * (width - margin * 2);
   }
 
-  function courseCenter(y, width, seed) {
-    return mapCourseX(courseCenterRatio(y, seed), width);
-  }
-
   function readStoredRun(dateKey = utcDateKey()) {
     if (typeof localStorage === 'undefined') return null;
 
@@ -159,7 +169,7 @@
   }
 
   function persistRun() {
-    if (State.isPractice) return;
+    if (State.isPractice || State.isCustom) return;
     if (typeof localStorage === 'undefined') return;
 
     const existingRun = readStoredRun(State.course.dateKey);
@@ -195,6 +205,9 @@
     yeti: null,
     attempts: 0,
     isPractice: false,
+    isCustom: false,
+    customCourse: null,
+    customParam: '',
     finished: false,
     missedFinish: false,
     course: {
@@ -344,7 +357,7 @@
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'spacebar'].includes(key)) {
       event.preventDefault();
     }
-    if ((key === ' ' || key === 'spacebar') && !State.running) reset({ practice: State.isPractice });
+    if ((key === ' ' || key === 'spacebar') && !State.running) reset({ practice: State.isPractice, custom: State.isCustom });
     if (key === 'arrowleft' || key === 'a') turnWest();
     if (key === 'arrowright' || key === 'd') turnEast();
     if (key === 'arrowdown' || key === 's') pointDownhill();
@@ -356,24 +369,30 @@
   canvas.addEventListener('pointercancel', stopTouchControl);
   overlay.addEventListener('click', (event) => {
     if (!(event.target instanceof HTMLButtonElement)) return;
-    if (event.target.dataset.action === 'play') reset({ practice: State.isPractice });
+    if (event.target.dataset.action === 'play') reset({ practice: State.isPractice, custom: State.isCustom });
     if (event.target.dataset.action === 'practice') reset({ practice: true });
     if (event.target.dataset.action === 'share') shareFinishedRun(event.target);
   });
 
-  function reset({ practice = false } = {}) {
+  function reset({ practice = false, custom = false } = {}) {
     const { w, h } = viewport();
-    const dateKey = practice ? 'practice' : utcDateKey();
-    const storedRun = practice ? null : readStoredRun(dateKey);
-    const sameDaily = !practice && State.course.dateKey === dateKey;
+    const isCustomRun = custom && State.customCourse;
+    const dateKey = isCustomRun ? 'custom' : practice ? 'practice' : utcDateKey();
+    const storedRun = practice || isCustomRun ? null : readStoredRun(dateKey);
+    const sameDaily = !practice && !isCustomRun && State.course.dateKey === dateKey;
     const samePractice = practice && State.isPractice;
+    const sameCustom = isCustomRun && State.isCustom;
     const priorBest = practice
       ? samePractice ? State.course.bestTime : null
+      : isCustomRun ? sameCustom ? State.course.bestTime : null
       : sameDaily ? State.course.bestTime : storedRun?.bestTime ?? null;
     const seed = practice ? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0 : undefined;
-    const course = createDailyCourse(w, dateKey, priorBest, seed);
+    const course = isCustomRun
+      ? createCustomCourse(w, State.customCourse, priorBest)
+      : createDailyCourse(w, dateKey, priorBest, seed);
     const previousAttempts = practice
       ? samePractice ? State.attempts : 0
+      : isCustomRun ? sameCustom ? State.attempts : 0
       : sameDaily ? State.attempts : storedRun?.attempts ?? 0;
     Object.assign(State, {
       running: true,
@@ -388,6 +407,7 @@
       yeti: null,
       attempts: previousAttempts + 1,
       isPractice: practice,
+      isCustom: Boolean(isCustomRun),
       finished: false,
       missedFinish: false,
       course: {
@@ -437,6 +457,66 @@
     if (type === 'thickSnow') return seededRand(rng, 12, 18);
     if (type === 'jump') return seededRand(rng, 16, 22);
     return seededRand(rng, 28, 46);
+  }
+
+  function createFixedObject(type, x, y) {
+    const fixed = FIXED_OBJECTS[type];
+    if (!fixed) throw new Error(`Unsupported custom object type: ${type}`);
+
+    const frame = FRAMES.objects[type];
+    return {
+      type,
+      x,
+      y,
+      r: fixed.r,
+      spriteW: frame ? frame[2] : undefined,
+      spriteH: frame ? frame[3] : undefined,
+      w: fixed.w,
+      h: fixed.h,
+      used: false,
+      scored: false,
+    };
+  }
+
+  function createCustomCourse(width, customCourse, bestTime) {
+    const margin = terrainMargin();
+    const courseWidth = width - margin * 2;
+    const finishY = COURSE_LENGTH;
+    const finishX = mapCourseX(customCourse.finishX ?? 0.5, width);
+    const finishWidth = Math.min(FINISH_GATE_WIDTH, Math.max(76, courseWidth * 0.64));
+    const objects = [
+      { type: 'start', x: width * 0.5, y: 8, r: 14 },
+      {
+        type: 'finish',
+        x: finishX,
+        y: finishY,
+        r: 14,
+        w: finishWidth,
+        h: 70,
+        used: false,
+      },
+    ];
+
+    for (const [encodedType, gameType] of Object.entries(CUSTOM_TYPE_MAP)) {
+      const entries = customCourse.objects?.[encodedType] || [];
+      for (const entry of entries) {
+        objects.push(createFixedObject(
+          gameType,
+          mapCourseX(entry.x ?? 0.5, width),
+          clamp(entry.y ?? 0, 0, COURSE_LENGTH)
+        ));
+      }
+    }
+
+    return {
+      dateKey: 'custom',
+      seed: 0,
+      finishY,
+      finishX,
+      finishWidth,
+      bestTime,
+      objects,
+    };
   }
 
   function createDailyCourse(width, dateKey, bestTime, seedOverride) {
@@ -602,9 +682,22 @@
     return count === 1 ? 'attempt' : 'attempts';
   }
 
+  function customShareUrl() {
+    return `https://skifreedle.com/?c=${encodeURIComponent(State.customParam)}`;
+  }
+
+  function runLabel() {
+    if (State.isCustom) return 'Custom';
+    if (State.isPractice) return 'Practice';
+    return `Daily ${State.course.dateKey}`;
+  }
+
   function shareText() {
+    const courseLabel = State.isCustom
+      ? customShareUrl()
+      : `https://skifreedle.com/ ${State.isPractice ? 'practice' : State.course.dateKey}`;
     return [
-      `🎿 https://skifreedle.com/ ${State.isPractice ? 'practice' : State.course.dateKey}`,
+      `🎿 ${courseLabel}`,
       `${formatTime(State.elapsed)} in ${State.attempts} ${attemptLabel(State.attempts)}`,
     ].join('\n');
   }
@@ -645,11 +738,11 @@
 
   function renderFinishedModal(isBest) {
     const course = State.course;
-    const runLabel = State.isPractice ? 'Practice' : `Daily ${course.dateKey}`;
-    const refreshLine = State.isPractice
+    const label = runLabel();
+    const refreshLine = State.isPractice || State.isCustom
       ? ''
       : `<p>Refreshes in <strong data-refreshes-in>${formatCountdown(msUntilUtcTomorrow())}</strong></p>`;
-    const buttons = State.isPractice
+    const buttons = State.isPractice || State.isCustom
       ? `
         <button data-action="share">Share 🎿</button>
         <button data-action="play">Try again (space)</button>
@@ -662,7 +755,7 @@
       `;
     overlay.querySelector('.panel').innerHTML = `
       <h1>Finished!</h1>
-      <p>${runLabel}: ${formatTime(State.elapsed)} in ${State.attempts} ${attemptLabel(State.attempts)} ${isBest ? '(best)' : ''}</p>
+      <p>${label}: ${formatTime(State.elapsed)} in ${State.attempts} ${attemptLabel(State.attempts)} ${isBest ? '(best)' : ''}</p>
       <p>Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
       ${refreshLine}
       ${buttons}
@@ -716,7 +809,7 @@
 
     overlay.querySelector('.panel').innerHTML = `
       <h1>${reason}</h1>
-      <p>${State.isPractice ? 'Practice' : `Daily ${course.dateKey}`}: crashed at ${formatTime(State.elapsed)}</p>
+      <p>${runLabel()}: crashed at ${formatTime(State.elapsed)}</p>
       <p>${State.missedFinish ? 'You missed the finish gate and the yeti caught you.' : 'Reach the finish gate without hitting anything.'}</p>
       <p>Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
       <button data-action="play">Try again (space)</button>
@@ -837,6 +930,22 @@
   function updateRefreshCountdown() {
     const target = overlay.querySelector('[data-refreshes-in]');
     if (target) target.textContent = formatCountdown(msUntilUtcTomorrow());
+  }
+
+  function renderStartModal({ custom = false, error = '' } = {}) {
+    const panel = overlay.querySelector('.panel');
+    const errorLine = error ? `<p class="share-status">${error}</p>` : '';
+    panel.innerHTML = `
+      <h1>SkiFreedle</h1>
+      ${errorLine}
+      <p>Use WASD or touchscreen to ski.</p>
+      <p>${custom
+        ? 'Reach the custom finish gate without crashing.'
+        : 'Reach today&apos;s finish gate in about 10 seconds without crashing. Miss the gate and the yeti will hunt you down.'}</p>
+      <p><a href="builder.html">Build a custom course</a></p>
+      <button data-action="play">${custom ? 'Start Custom Course' : 'Start Today&apos;s Run'}</button>
+    `;
+    overlay.classList.add('show');
   }
 
   function worldToScreenY(y) {
@@ -1071,9 +1180,36 @@
 
   function initializeDailyState() {
     const { w } = viewport();
+    const customParam = new URLSearchParams(window.location.search).get('c');
     const dateKey = utcDateKey();
     const storedRun = readStoredRun(dateKey);
     const course = createDailyCourse(w, dateKey, storedRun?.bestTime ?? null);
+
+    if (customParam) {
+      try {
+        const customCourse = window.SkiFreedleCodec.decodeCourseParam(customParam);
+        const custom = createCustomCourse(w, customCourse, null);
+        State.course = {
+          dateKey: custom.dateKey,
+          seed: custom.seed,
+          finishY: custom.finishY,
+          finishX: custom.finishX,
+          finishWidth: custom.finishWidth,
+          bestTime: custom.bestTime,
+        };
+        State.objects = custom.objects;
+        State.attempts = 0;
+        State.isPractice = false;
+        State.isCustom = true;
+        State.customCourse = customCourse;
+        State.customParam = customParam;
+        renderStartModal({ custom: true });
+        return;
+      } catch (error) {
+        console.warn('Could not load custom SkiFreedle course:', error);
+        renderStartModal({ error: `Could not load custom course: ${error.message}` });
+      }
+    }
 
     State.course = {
       dateKey: course.dateKey,
@@ -1086,6 +1222,9 @@
     State.objects = course.objects;
     State.attempts = storedRun?.attempts ?? 0;
     State.isPractice = false;
+    State.isCustom = false;
+    State.customCourse = null;
+    State.customParam = '';
 
     if (storedRun?.finished && storedRun.elapsed !== null) {
       State.gameOver = true;
