@@ -220,7 +220,11 @@
     const existingRun = readStoredRun(State.course.dateKey);
     const hasFinishedResult = State.finished || Boolean(existingRun?.finished);
     const finishedElapsed = State.finished ? State.elapsed : existingRun?.elapsed ?? null;
-    const ghost = currentRunGhostPayload() ?? ghostPayloadFromRun(existingRun?.ghost);
+    const currentGhost = currentRunGhostPayload();
+    const existingGhost = ghostPayloadFromRun(existingRun?.ghost);
+    const existingBest = existingRun?.bestTime;
+    const isBestGhost = State.finished && currentGhost && (existingBest === null || typeof existingBest === 'undefined' || State.elapsed <= existingBest);
+    const ghost = isBestGhost ? currentGhost : existingGhost;
     const payload = {
       dateKey: State.course.dateKey,
       seed: State.course.seed,
@@ -427,23 +431,25 @@
   overlay.addEventListener('click', (event) => {
     if (!(event.target instanceof HTMLButtonElement)) return;
     if (event.target.dataset.action === 'play') reset({ practice: State.isPractice, custom: State.isCustom });
-    if (event.target.dataset.action === 'practice') reset({ practice: true });
+    if (event.target.dataset.action === 'practice') reset({ practice: true, freshPractice: true });
     if (event.target.dataset.action === 'share') shareFinishedRun(event.target);
   });
 
-  function reset({ practice = false, custom = false } = {}) {
+  function reset({ practice = false, custom = false, freshPractice = false } = {}) {
     const { w, h } = viewport();
     const isCustomRun = custom && State.customCourse;
     const dateKey = isCustomRun ? 'custom' : practice ? 'practice' : utcDateKey();
     const storedRun = practice || isCustomRun ? null : readStoredRun(dateKey);
     const sameDaily = !practice && !isCustomRun && State.course.dateKey === dateKey;
-    const samePractice = practice && State.isPractice;
+    const samePractice = practice && State.isPractice && !freshPractice;
     const sameCustom = isCustomRun && State.isCustom;
     const priorBest = practice
       ? samePractice ? State.course.bestTime : null
       : isCustomRun ? sameCustom ? State.course.bestTime : null
       : sameDaily ? State.course.bestTime : storedRun?.bestTime ?? null;
-    const seed = practice ? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0 : undefined;
+    const seed = practice
+      ? samePractice ? State.course.seed : (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0
+      : undefined;
     const course = isCustomRun
       ? createCustomCourse(w, State.customCourse, priorBest)
       : createDailyCourse(w, dateKey, priorBest, seed);
