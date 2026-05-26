@@ -23,6 +23,11 @@
   const RUN_STORAGE_KEY = 'skifreedle-daily-run-v1';
   const MOBILE_COURSE_BREAKPOINT = 640;
   const TOUCH_REPEAT_MS = 170;
+  const ACTIONS = ['west', 'east', 'down', 'stop'];
+  const ACTION_CODES = ACTIONS.reduce((codes, action, index) => {
+    codes[action] = index;
+    return codes;
+  }, {});
   const CUSTOM_TYPE_MAP = {
     tree: 'smallTree',
     rock: 'rock',
@@ -154,6 +159,7 @@
 
       const elapsed = Number(parsed.elapsed);
       const bestTime = Number(parsed.bestTime);
+      const ghost = normalizeStoredGhost(parsed.ghost);
       return {
         dateKey: parsed.dateKey,
         seed: Number(parsed.seed) >>> 0,
@@ -161,11 +167,50 @@
         finished: Boolean(parsed.finished),
         elapsed: Number.isFinite(elapsed) ? elapsed : null,
         bestTime: Number.isFinite(bestTime) ? bestTime : Number.isFinite(elapsed) ? elapsed : null,
+        ghost,
       };
     } catch (error) {
       console.warn('Could not read SkiFreedle daily run from localStorage:', error);
       return null;
     }
+  }
+
+  function normalizeStoredGhost(ghost) {
+    if (!ghost || !Array.isArray(ghost.actions)) return null;
+
+    const duration = Math.max(0, Number(ghost.duration) || 0);
+    const actions = ghost.actions
+      .map((entry) => {
+        if (!Array.isArray(entry) || entry.length < 2) return null;
+        const t = Math.max(0, Math.round(Number(entry[0]) || 0));
+        const action = ACTIONS[Number(entry[1])];
+        return action ? { t, action } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.t - b.t);
+
+    if (duration <= 0) return null;
+    return { duration, actions };
+  }
+
+  function currentRunGhostPayload() {
+    if (State.running || State.elapsed <= 0) return null;
+
+    return ghostPayloadFromRun({
+      duration: Math.round(State.elapsed * 1000),
+      actions: State.currentRunActions,
+    });
+  }
+
+  function ghostPayloadFromRun(ghostRun) {
+    if (!ghostRun) return null;
+
+    return {
+      duration: Math.round(ghostRun.duration),
+      actions: ghostRun.actions
+        .map((entry) => [entry.t, ACTION_CODES[entry.action]])
+        .filter((entry) => Number.isFinite(entry[1])),
+    };
   }
 
   function persistRun() {
@@ -175,6 +220,7 @@
     const existingRun = readStoredRun(State.course.dateKey);
     const hasFinishedResult = State.finished || Boolean(existingRun?.finished);
     const finishedElapsed = State.finished ? State.elapsed : existingRun?.elapsed ?? null;
+    const ghost = currentRunGhostPayload() ?? ghostPayloadFromRun(existingRun?.ghost);
     const payload = {
       dateKey: State.course.dateKey,
       seed: State.course.seed,
@@ -182,6 +228,7 @@
       finished: hasFinishedResult,
       elapsed: finishedElapsed,
       bestTime: State.course.bestTime ?? existingRun?.bestTime ?? null,
+      ghost,
       updatedAt: new Date().toISOString(),
     };
 
@@ -204,6 +251,9 @@
     bonuses: [],
     yeti: null,
     attempts: 0,
+    currentRunActions: [],
+    ghostRun: null,
+    ghost: null,
     isPractice: false,
     isCustom: false,
     customCourse: null,
@@ -253,9 +303,8 @@
   window.visualViewport?.addEventListener('resize', resize);
   resize();
 
-  function turnWest() {
-    const p = State.player;
-    if (p.airborne || p.iceTimer > 0 || State.gameOver) return;
+  function turnWestFor(p, blockedByGameOver = false) {
+    if (p.airborne || p.iceTimer > 0 || (blockedByGameOver && State.gameOver)) return;
     if (p.directionIndex === 0) {
       p.x -= 18;
       return;
@@ -264,9 +313,8 @@
     p.lastSide = -1;
   }
 
-  function turnEast() {
-    const p = State.player;
-    if (p.airborne || p.iceTimer > 0 || State.gameOver) return;
+  function turnEastFor(p, blockedByGameOver = false) {
+    if (p.airborne || p.iceTimer > 0 || (blockedByGameOver && State.gameOver)) return;
     if (p.directionIndex === DIRECTIONS.length - 1) {
       p.x += 18;
       return;
@@ -275,22 +323,31 @@
     p.lastSide = 1;
   }
 
-  function pointDownhill() {
-    if (State.player.iceTimer > 0 || State.gameOver) return;
-    State.player.directionIndex = SOUTH_INDEX;
+  function pointDownhillFor(p, blockedByGameOver = false) {
+    if (p.iceTimer > 0 || (blockedByGameOver && State.gameOver)) return;
+    p.directionIndex = SOUTH_INDEX;
   }
 
-  function stopAcrossSlope() {
-    const p = State.player;
-    if (p.airborne || p.iceTimer > 0 || State.gameOver) return;
+  function stopAcrossSlopeFor(p, blockedByGameOver = false) {
+    if (p.airborne || p.iceTimer > 0 || (blockedByGameOver && State.gameOver)) return;
     p.directionIndex = p.directionIndex < SOUTH_INDEX || p.lastSide < 0 ? 0 : DIRECTIONS.length - 1;
   }
 
-  function runControlAction(action) {
-    if (action === 'west') turnWest();
-    if (action === 'east') turnEast();
-    if (action === 'down') pointDownhill();
-    if (action === 'stop') stopAcrossSlope();
+  function recordControlAction(action) {
+    if (!State.running || !ACTIONS.includes(action)) return;
+    State.currentRunActions.push({ t: Math.round(State.elapsed * 1000), action });
+  }
+
+  function applyControlAction(action, target, blockedByGameOver = false) {
+    if (action === 'west') turnWestFor(target, blockedByGameOver);
+    if (action === 'east') turnEastFor(target, blockedByGameOver);
+    if (action === 'down') pointDownhillFor(target, blockedByGameOver);
+    if (action === 'stop') stopAcrossSlopeFor(target, blockedByGameOver);
+  }
+
+  function runControlAction(action, { target = State.player, record = true } = {}) {
+    if (record) recordControlAction(action);
+    applyControlAction(action, target, target === State.player);
   }
 
   const touchControl = {
@@ -358,10 +415,10 @@
       event.preventDefault();
     }
     if ((key === ' ' || key === 'spacebar') && !State.running) reset({ practice: State.isPractice, custom: State.isCustom });
-    if (key === 'arrowleft' || key === 'a') turnWest();
-    if (key === 'arrowright' || key === 'd') turnEast();
-    if (key === 'arrowdown' || key === 's') pointDownhill();
-    if (key === 'arrowup' || key === 'w') stopAcrossSlope();
+    if (key === 'arrowleft' || key === 'a') runControlAction('west');
+    if (key === 'arrowright' || key === 'd') runControlAction('east');
+    if (key === 'arrowdown' || key === 's') runControlAction('down');
+    if (key === 'arrowup' || key === 'w') runControlAction('stop');
   });
   canvas.addEventListener('pointerdown', startTouchControl);
   canvas.addEventListener('pointermove', moveTouchControl);
@@ -390,6 +447,7 @@
     const course = isCustomRun
       ? createCustomCourse(w, State.customCourse, priorBest)
       : createDailyCourse(w, dateKey, priorBest, seed);
+    const ghostRun = practice || isCustomRun ? null : storedRun?.ghost ?? State.ghostRun ?? null;
     const previousAttempts = practice
       ? samePractice ? State.attempts : 0
       : isCustomRun ? sameCustom ? State.attempts : 0
@@ -406,6 +464,9 @@
       bonuses: [],
       yeti: null,
       attempts: previousAttempts + 1,
+      currentRunActions: [],
+      ghostRun,
+      ghost: createGhost(ghostRun, w),
       isPractice: practice,
       isCustom: Boolean(isCustomRun),
       finished: false,
@@ -419,18 +480,7 @@
         bestTime: course.bestTime,
       },
     });
-    Object.assign(State.player, {
-      x: w * 0.5,
-      y: 0,
-      directionIndex: SOUTH_INDEX,
-      lastSide: 1,
-      speed: 130,
-      z: 0,
-      vz: 0,
-      airborne: false,
-      airTime: 0,
-      iceTimer: 0,
-    });
+    Object.assign(State.player, createSkierState(w * 0.5));
     persistRun();
     overlay.classList.remove('show');
   }
@@ -475,6 +525,35 @@
       h: fixed.h,
       used: false,
       scored: false,
+    };
+  }
+
+  function createSkierState(x) {
+    return {
+      x,
+      y: 0,
+      directionIndex: SOUTH_INDEX,
+      lastSide: 1,
+      speed: 130,
+      z: 0,
+      vz: 0,
+      airborne: false,
+      airTime: 0,
+      iceTimer: 0,
+      hitRadius: 12,
+    };
+  }
+
+  function createGhost(ghostRun, width) {
+    if (!ghostRun) return null;
+    return {
+      active: true,
+      elapsed: 0,
+      duration: ghostRun.duration / 1000,
+      actionIndex: 0,
+      actions: ghostRun.actions,
+      usedObjects: new WeakSet(),
+      player: createSkierState(width * 0.5),
     };
   }
 
@@ -611,9 +690,8 @@
     };
   }
 
-  function updatePlayer(dt) {
+  function updateSkier(p, dt, { recordTracks = false } = {}) {
     const { w } = viewport();
-    const p = State.player;
     const dir = DIRECTIONS[p.directionIndex];
     const onIce = p.iceTimer > 0;
     const ice = onIce ? 1.28 : 1;
@@ -654,11 +732,17 @@
       }
     }
 
-    const movedEnough = State.tracks.length === 0 || p.y - State.tracks[State.tracks.length - 1].y > 6;
-    if (!p.airborne && movedEnough && dir.y > 0) State.tracks.push({ x: p.x, y: p.y, angle: dir.angle });
-    while (State.tracks.length > 520 || (State.tracks[0] && State.tracks[0].y < State.cameraY - 90)) {
-      State.tracks.shift();
+    if (recordTracks) {
+      const movedEnough = State.tracks.length === 0 || p.y - State.tracks[State.tracks.length - 1].y > 6;
+      if (!p.airborne && movedEnough && dir.y > 0) State.tracks.push({ x: p.x, y: p.y, angle: dir.angle });
+      while (State.tracks.length > 520 || (State.tracks[0] && State.tracks[0].y < State.cameraY - 90)) {
+        State.tracks.shift();
+      }
     }
+  }
+
+  function updatePlayer(dt) {
+    updateSkier(State.player, dt, { recordTracks: true });
   }
 
   function hitCircle(ax, ay, ar, bx, by, br) {
@@ -773,6 +857,71 @@
     p.vz = 305 + Math.min(130, p.speed * 0.27);
     p.speed = Math.min(575, p.speed + 45);
     addBonus('jump!', object.x, object.y - 20);
+  }
+
+  function launchGhostFromJump(ghost) {
+    const p = ghost.player;
+    if (p.airborne) return;
+    p.airborne = true;
+    p.vz = 305 + Math.min(130, p.speed * 0.27);
+    p.speed = Math.min(575, p.speed + 45);
+  }
+
+  function updateGhostObjects(ghost) {
+    const p = ghost.player;
+
+    for (const object of State.objects) {
+      if (object.y < p.y - 80 || object.y > p.y + 180) continue;
+      if (object.type === 'start' || object.type === 'finish') continue;
+
+      if (object.type === 'jump') {
+        if (!ghost.usedObjects.has(object) && !p.airborne && hitEllipse(p.x, p.y + 9, object.x, object.y, object.w * 1.15, object.h * 1.2)) {
+          ghost.usedObjects.add(object);
+          launchGhostFromJump(ghost);
+        }
+        continue;
+      }
+
+      if (object.type === 'thickSnow') {
+        if (!ghost.usedObjects.has(object) && !p.airborne && hitEllipse(p.x, p.y + 6, object.x, object.y, object.spriteW || 43, object.spriteH || 10)) {
+          ghost.usedObjects.add(object);
+          p.speed = Math.max(55, p.speed * 0.45);
+        }
+        continue;
+      }
+
+      if (object.type === 'ice') {
+        if (!p.airborne && hitEllipse(p.x, p.y, object.x, object.y, object.w, object.h)) {
+          if (!ghost.usedObjects.has(object) || p.iceTimer <= 0) {
+            ghost.usedObjects.add(object);
+            p.speed = Math.min(620, p.speed + 70);
+          }
+          p.iceTimer = 1.1;
+        }
+      }
+    }
+  }
+
+  function updateGhost(dt) {
+    const ghost = State.ghost;
+    if (!ghost?.active) return;
+
+    const nextElapsed = Math.min(ghost.duration, ghost.elapsed + dt);
+    const nextMs = Math.round(nextElapsed * 1000);
+
+    while (ghost.actionIndex < ghost.actions.length && ghost.actions[ghost.actionIndex].t <= nextMs) {
+      runControlAction(ghost.actions[ghost.actionIndex].action, { target: ghost.player, record: false });
+      ghost.actionIndex += 1;
+    }
+
+    const step = nextElapsed - ghost.elapsed;
+    if (step > 0) {
+      updateSkier(ghost.player, step);
+      updateGhostObjects(ghost);
+    }
+
+    ghost.elapsed = nextElapsed;
+    if (ghost.elapsed >= ghost.duration) ghost.active = false;
   }
 
   function finishRun() {
@@ -912,6 +1061,7 @@
     State.time += dt;
     State.elapsed += dt;
     updatePlayer(dt);
+    updateGhost(dt);
 
     const { h } = viewport();
     const targetCameraY = State.player.y - h * 0.34;
@@ -1088,17 +1238,23 @@
     drawFrame('characters', frame, x, y + 32, 'bottom');
   }
 
-  function drawSkier() {
-    const p = State.player;
+  function drawSkier(p = State.player, { ghost = false } = {}) {
     const sy = worldToScreenY(p.y) - p.z * 0.28;
     const direction = DIRECTIONS[p.directionIndex].name;
     const frame = FRAMES.skier[p.airborne ? 'jumping' : direction];
 
-    ctx.fillStyle = `rgba(0, 0, 0, ${p.airborne ? 0.12 : 0.18})`;
-    ctx.beginPath();
-    ctx.ellipse(p.x, worldToScreenY(p.y) + 13, 15 - p.z * 0.018, 5, 0, 0, TAU);
-    ctx.fill();
+    ctx.save();
+    if (ghost) {
+      ctx.globalAlpha = 0.45;
+      ctx.filter = 'grayscale(1)';
+    } else {
+      ctx.fillStyle = `rgba(0, 0, 0, ${p.airborne ? 0.12 : 0.18})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, worldToScreenY(p.y) + 13, 15 - p.z * 0.018, 5, 0, 0, TAU);
+      ctx.fill();
+    }
     drawFrame('characters', frame, p.x, sy + 18, 'bottom');
+    ctx.restore();
   }
 
   function drawObject(object) {
@@ -1156,7 +1312,10 @@
       .map((object) => ({ y: object.y, draw: () => drawObject(object) }));
 
     if (State.yeti) drawables.push({ y: State.yeti.y + 22, draw: () => drawYeti(State.yeti) });
-    drawables.push({ y: State.player.y + 10, draw: drawSkier });
+    if (State.ghost?.active) {
+      drawables.push({ y: State.ghost.player.y + 10, draw: () => drawSkier(State.ghost.player, { ghost: true }) });
+    }
+    drawables.push({ y: State.player.y + 10, draw: () => drawSkier() });
     drawables.sort((a, b) => a.y - b.y);
     for (const drawable of drawables) drawable.draw();
 
@@ -1223,6 +1382,8 @@
     };
     State.objects = course.objects;
     State.attempts = storedRun?.attempts ?? 0;
+    State.ghostRun = storedRun?.ghost ?? null;
+    State.ghost = null;
     State.isPractice = false;
     State.isCustom = false;
     State.customCourse = null;
