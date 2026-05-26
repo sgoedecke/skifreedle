@@ -141,6 +141,36 @@ button:active {
   font-size: 13px;
 }
 
+.modal-links {
+  color: #7a90a4;
+  font-size: 13px;
+}
+
+.modal-links a {
+  color: #49667f;
+  text-decoration: none;
+}
+
+.modal-links a:hover {
+  text-decoration: underline;
+}
+
+.about-shell {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 24px;
+}
+
+.about-panel {
+  text-align: left;
+}
+
+.about-panel h1,
+.about-panel .modal-links {
+  text-align: center;
+}
+
 .builder-page {
   height: auto;
   min-height: 100dvh;

@@ -760,6 +760,7 @@
       ${refreshLine}
       ${buttons}
       <p class="share-status" data-share-status></p>
+      <p class="modal-links"><a href="/about">About</a></p>
     `;
     overlay.classList.add('show');
   }
@@ -813,6 +814,7 @@
       <p>${State.missedFinish ? 'You missed the finish gate and the yeti caught you.' : 'Reach the finish gate without hitting anything.'}</p>
       <p>Best: ${course.bestTime === null ? '--' : formatTime(course.bestTime)}</p>
       <button data-action="play">Try again (space)</button>
+      <p class="modal-links"><a href="/about">About</a></p>
     `;
     overlay.classList.add('show');
   }
@@ -942,7 +944,7 @@
       <p>${custom
         ? 'Reach the custom finish gate without crashing.'
         : 'Reach today&apos;s finish gate in about 10 seconds without crashing. Miss the gate and the yeti will hunt you down.'}</p>
-      <p><a href="builder.html">Build a custom course</a></p>
+      <p class="modal-links"><a href="builder.html">Build a custom course</a> <span aria-hidden="true">·</span> <a href="/about">About</a></p>
       <button data-action="play">${custom ? 'Start Custom Course' : 'Start Today&apos;s Run'}</button>
     `;
     overlay.classList.add('show');
