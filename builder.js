@@ -8,15 +8,15 @@
   const clearButton = document.getElementById('clear-course');
   const toolButtons = Array.from(document.querySelectorAll('[data-tool]'));
   const codec = window.SkiFreedleCodec;
+  const objectSheet = new Image();
 
   const COURSE_LENGTH = codec.COURSE_LENGTH;
   const TYPES = codec.TYPES;
-  const TYPE_META = {
-    tree: { label: 'T', color: '#147438' },
-    rock: { label: 'R', color: '#6d7782' },
-    mogul: { label: 'M', color: '#79bdf2' },
-    lake: { label: 'L', color: '#43b9e8' },
-    jump: { label: 'J', color: '#df7a21' },
+  const SPRITES = {
+    tree: { frame: [0, 28, 30, 34], scale: 0.75, anchor: 'bottom', yOffset: 11 },
+    rock: { frame: [30, 52, 23, 11], scale: 0.85, anchor: 'bottom', yOffset: 6 },
+    mogul: { frame: [143, 53, 43, 10], scale: 0.78, anchor: 'center', yOffset: 0 },
+    jump: { frame: [109, 55, 32, 8], scale: 0.9, anchor: 'center', yOffset: 0 },
   };
 
   const state = {
@@ -29,7 +29,7 @@
   };
 
   let logicalWidth = 480;
-  let logicalHeight = 1600;
+  let logicalHeight = Math.round(COURSE_LENGTH * 0.5);
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const xToRatio = (x) => clamp(x / logicalWidth, 0, 1);
@@ -70,12 +70,13 @@
   function resize() {
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     logicalWidth = Math.min(640, Math.max(320, window.innerWidth - 24));
-    logicalHeight = 1600;
+    logicalHeight = Math.round(COURSE_LENGTH * 0.5);
     canvas.style.width = `${logicalWidth}px`;
     canvas.style.height = `${logicalHeight}px`;
     canvas.width = Math.floor(logicalWidth * dpr);
     canvas.height = Math.floor(logicalHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     draw();
   }
 
@@ -101,35 +102,49 @@
     ctx.stroke();
   }
 
+  function drawSprite(sprite, x, y) {
+    const [sx, sy, sw, sh] = sprite.frame;
+    const dw = sw * sprite.scale;
+    const dh = sh * sprite.scale;
+    const dx = Math.round(x - dw * 0.5);
+    const dy = Math.round(sprite.anchor === 'bottom' ? y - dh : y - dh * 0.5);
+    ctx.drawImage(objectSheet, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  function drawLake(x, y) {
+    ctx.fillStyle = 'rgba(147, 214, 245, 0.72)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 26, 11, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#f7fdff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - 14, y - 1);
+    ctx.lineTo(x + 10, y - 7);
+    ctx.moveTo(x - 4, y + 7);
+    ctx.lineTo(x + 17, y + 1);
+    ctx.stroke();
+  }
+
   function drawObject(type, object) {
-    const meta = TYPE_META[type];
     const x = ratioToX(object.x);
     const y = courseToY(object.y);
 
-    ctx.fillStyle = meta.color;
     if (type === 'lake') {
-      ctx.beginPath();
-      ctx.ellipse(x, y, 22, 10, -0.15, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (type === 'jump') {
-      ctx.beginPath();
-      ctx.moveTo(x - 14, y + 8);
-      ctx.lineTo(x + 14, y + 8);
-      ctx.lineTo(x + 6, y - 9);
-      ctx.lineTo(x - 10, y - 3);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.arc(x, y, type === 'tree' ? 9 : 8, 0, Math.PI * 2);
-      ctx.fill();
+      drawLake(x, y);
+      return;
     }
 
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(meta.label, x, y);
+    const sprite = SPRITES[type];
+    if (sprite && objectSheet.complete && objectSheet.naturalWidth !== 0) {
+      drawSprite(sprite, x, y + sprite.yOffset);
+      return;
+    }
+
+    ctx.fillStyle = '#1d73be';
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawFinish() {
@@ -213,6 +228,9 @@
   toolButtons.forEach((button) => {
     button.addEventListener('click', () => setTool(button.dataset.tool));
   });
+
+  objectSheet.addEventListener('load', draw);
+  objectSheet.src = 'skifree-objects.png';
 
   canvas.addEventListener('click', placeAt);
   copyButton.addEventListener('click', () => {

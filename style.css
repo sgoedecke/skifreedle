@@ -9,6 +9,13 @@ body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
+html.builder-document,
+html.builder-document body {
+  height: auto;
+  min-height: 100dvh;
+  overflow: auto;
+}
+
 #game {
   display: block;
   width: 100vw;
