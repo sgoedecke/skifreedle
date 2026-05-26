@@ -157,10 +157,10 @@
       const parsed = JSON.parse(raw);
       if (!parsed || parsed.dateKey !== dateKey) return null;
 
-      const elapsed = Number(parsed.elapsed);
-      const rawBestTime = Number(parsed.bestTime);
-      const bestTime = Number.isFinite(rawBestTime) ? rawBestTime : Number.isFinite(elapsed) ? elapsed : null;
-      const ghostBestTime = Number(parsed.ghostBestTime);
+      const elapsed = storedNumber(parsed.elapsed);
+      const rawBestTime = storedNumber(parsed.bestTime);
+      const bestTime = rawBestTime ?? elapsed;
+      const ghostBestTime = storedNumber(parsed.ghostBestTime);
       const rawGhost = normalizeStoredGhost(parsed.ghost);
       const ghost = storedGhostMatchesBest(rawGhost, bestTime, ghostBestTime) ? rawGhost : null;
       return {
@@ -168,7 +168,7 @@
         seed: Number(parsed.seed) >>> 0,
         attempts: Math.max(0, Number(parsed.attempts) || 0),
         finished: Boolean(parsed.finished),
-        elapsed: Number.isFinite(elapsed) ? elapsed : null,
+        elapsed,
         bestTime,
         ghost,
         ghostBestTime: ghost ? bestTime : null,
@@ -177,6 +177,10 @@
       console.warn('Could not read SkiFreedle daily run from localStorage:', error);
       return null;
     }
+  }
+
+  function storedNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 
   function normalizeStoredGhost(ghost) {
