@@ -11,6 +11,7 @@
   const objectSheet = new Image();
 
   const COURSE_LENGTH = codec.COURSE_LENGTH;
+  const MOBILE_COURSE_BREAKPOINT = 640;
   const TYPES = codec.TYPES;
   const SPRITES = {
     tree: { frame: [0, 28, 30, 34], scale: 0.75, anchor: 'bottom', yOffset: 11 },
@@ -32,10 +33,29 @@
   let logicalHeight = Math.round(COURSE_LENGTH * 0.5);
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-  const xToRatio = (x) => clamp(x / logicalWidth, 0, 1);
   const yToCourse = (y) => clamp((y / logicalHeight) * COURSE_LENGTH, 0, COURSE_LENGTH);
-  const ratioToX = (ratio) => ratio * logicalWidth;
   const courseToY = (y) => (y / COURSE_LENGTH) * logicalHeight;
+
+  function terrainMarginForWidth(width) {
+    if (width <= MOBILE_COURSE_BREAKPOINT) {
+      return Math.max(8, Math.min(16, width * 0.03));
+    }
+
+    const oldMargin = Math.max(34, Math.min(72, width * 0.06));
+    const oldCourseWidth = width - oldMargin * 2;
+    const narrowedWidth = Math.max(120, oldCourseWidth / 3);
+    return (width - narrowedWidth) * 0.5;
+  }
+
+  function xToRatio(x) {
+    const margin = terrainMarginForWidth(logicalWidth);
+    return clamp((x - margin) / (logicalWidth - margin * 2), 0, 1);
+  }
+
+  function ratioToX(ratio) {
+    const margin = terrainMarginForWidth(logicalWidth);
+    return margin + clamp(ratio, 0, 1) * (logicalWidth - margin * 2);
+  }
 
   function playUrl() {
     const url = new URL('./', window.location.href);
@@ -100,6 +120,21 @@
     ctx.moveTo(logicalWidth * 0.5, 0);
     ctx.lineTo(logicalWidth * 0.5, logicalHeight);
     ctx.stroke();
+
+    const margin = terrainMarginForWidth(logicalWidth);
+    const edgeWidth = Math.max(0, margin - 16);
+    if (edgeWidth > 0) {
+      ctx.fillStyle = 'rgba(238, 247, 255, 0.72)';
+      ctx.fillRect(0, 0, edgeWidth, logicalHeight);
+      ctx.fillRect(logicalWidth - edgeWidth, 0, edgeWidth, logicalHeight);
+      ctx.strokeStyle = '#d9eafd';
+      ctx.beginPath();
+      ctx.moveTo(edgeWidth, 0);
+      ctx.lineTo(edgeWidth, logicalHeight);
+      ctx.moveTo(logicalWidth - edgeWidth, 0);
+      ctx.lineTo(logicalWidth - edgeWidth, logicalHeight);
+      ctx.stroke();
+    }
   }
 
   function drawSprite(sprite, x, y) {
