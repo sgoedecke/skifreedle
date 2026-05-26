@@ -949,8 +949,9 @@
     if (ghost.elapsed >= ghost.duration) ghost.active = false;
   }
 
-  function rememberSessionGhost() {
+  function rememberSessionGhost(isBest) {
     if (!State.isPractice && !State.isCustom) return;
+    if (!isBest) return;
     State.ghostRun = normalizeStoredGhost(currentRunGhostPayload());
   }
 
@@ -964,7 +965,7 @@
     const isBest = previousBest === null || State.elapsed < previousBest;
     if (isBest) course.bestTime = State.elapsed;
 
-    rememberSessionGhost();
+    rememberSessionGhost(isBest);
     persistRun();
     renderFinishedModal(isBest);
   }
@@ -986,7 +987,6 @@
     State.gameOver = true;
     State.crashReason = reason;
     const course = State.course;
-    rememberSessionGhost();
     persistRun();
 
     overlay.querySelector('.panel').innerHTML = `
