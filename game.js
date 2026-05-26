@@ -202,9 +202,9 @@
     if (!Number.isFinite(bestTime)) return true;
     if (Number.isFinite(ghostBestTime)) return Math.abs(ghostBestTime - bestTime) < 0.005;
 
-    // Legacy migration: older builds saved the latest ghost without tagging it.
-    // Only keep it if its replay duration lines up with the saved best time.
-    return Math.abs(ghost.duration - Math.round(bestTime * 1000)) <= 150;
+    // Legacy builds saved the latest ghost without tagging the best time.
+    // That data is ambiguous, so ignore it rather than replaying a stale run.
+    return false;
   }
 
   function currentRunGhostPayload() {
@@ -469,7 +469,10 @@
     const course = isCustomRun
       ? createCustomCourse(w, State.customCourse, priorBest)
       : createDailyCourse(w, dateKey, priorBest, seed);
-    const ghostRun = practice || isCustomRun ? null : storedRun?.ghost ?? State.ghostRun ?? null;
+    const ghostRun = practice
+      ? samePractice ? State.ghostRun : null
+      : isCustomRun ? sameCustom ? State.ghostRun : null
+      : storedRun?.ghost ?? State.ghostRun ?? null;
     const previousAttempts = practice
       ? samePractice ? State.attempts : 0
       : isCustomRun ? sameCustom ? State.attempts : 0
@@ -946,6 +949,11 @@
     if (ghost.elapsed >= ghost.duration) ghost.active = false;
   }
 
+  function rememberSessionGhost() {
+    if (!State.isPractice && !State.isCustom) return;
+    State.ghostRun = normalizeStoredGhost(currentRunGhostPayload());
+  }
+
   function finishRun() {
     State.running = false;
     State.gameOver = true;
@@ -956,6 +964,7 @@
     const isBest = previousBest === null || State.elapsed < previousBest;
     if (isBest) course.bestTime = State.elapsed;
 
+    rememberSessionGhost();
     persistRun();
     renderFinishedModal(isBest);
   }
@@ -977,6 +986,7 @@
     State.gameOver = true;
     State.crashReason = reason;
     const course = State.course;
+    rememberSessionGhost();
     persistRun();
 
     overlay.querySelector('.panel').innerHTML = `
