@@ -5,6 +5,8 @@
   const multEl = document.getElementById('mult');
   const speedEl = document.getElementById('speed');
   const overlay = document.getElementById('overlay');
+  const ghostToggleEl = document.getElementById('ghost-toggle');
+  const showGhostEl = document.getElementById('show-ghost');
 
   const TAU = Math.PI * 2;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -278,6 +280,7 @@
     currentRunActions: [],
     ghostRun: null,
     ghost: null,
+    showGhost: true,
     isPractice: false,
     isCustom: false,
     customCourse: null,
@@ -448,6 +451,9 @@
   canvas.addEventListener('pointermove', moveTouchControl);
   canvas.addEventListener('pointerup', stopTouchControl);
   canvas.addEventListener('pointercancel', stopTouchControl);
+  showGhostEl?.addEventListener('change', () => {
+    State.showGhost = showGhostEl.checked;
+  });
   overlay.addEventListener('click', (event) => {
     if (!(event.target instanceof HTMLButtonElement)) return;
     if (event.target.dataset.action === 'play') reset({ practice: State.isPractice, custom: State.isCustom });
@@ -496,6 +502,7 @@
       currentRunActions: [],
       ghostRun,
       ghost: createGhost(ghostRun, w),
+      showGhost: showGhostEl ? showGhostEl.checked : State.showGhost,
       isPractice: practice,
       isCustom: Boolean(isCustomRun),
       finished: false,
@@ -933,7 +940,7 @@
 
   function updateGhost(dt) {
     const ghost = State.ghost;
-    if (!ghost?.active) return;
+    if (!State.showGhost || !ghost?.active) return;
 
     const nextElapsed = Math.min(ghost.duration, ghost.elapsed + dt);
     const nextMs = Math.round(nextElapsed * 1000);
@@ -957,6 +964,7 @@
     if (!State.isPractice && !State.isCustom) return;
     if (!isBest) return;
     State.ghostRun = normalizeStoredGhost(currentRunGhostPayload());
+    updateGhostToggle();
   }
 
   function finishRun() {
@@ -1420,10 +1428,12 @@
     State.attempts = storedRun?.attempts ?? 0;
     State.ghostRun = storedRun?.ghost ?? null;
     State.ghost = null;
+    State.showGhost = showGhostEl ? showGhostEl.checked : true;
     State.isPractice = false;
     State.isCustom = false;
     State.customCourse = null;
     State.customParam = '';
+    updateGhostToggle();
 
     if (storedRun?.finished && storedRun.elapsed !== null) {
       State.gameOver = true;
@@ -1432,6 +1442,13 @@
       State.course.bestTime = storedRun.bestTime;
       renderFinishedModal(State.course.bestTime === State.elapsed);
     }
+  }
+
+  function updateGhostToggle() {
+    if (!ghostToggleEl || !showGhostEl) return;
+    const hasGhost = Boolean(State.ghostRun);
+    ghostToggleEl.hidden = !hasGhost;
+    if (hasGhost) State.showGhost = showGhostEl.checked;
   }
 
   scoreEl.textContent = '0.00s';
