@@ -1356,7 +1356,7 @@
       .map((object) => ({ y: object.y, draw: () => drawObject(object) }));
 
     if (State.yeti) drawables.push({ y: State.yeti.y + 22, draw: () => drawYeti(State.yeti) });
-    if (State.ghost?.active) {
+    if (State.showGhost && State.ghost?.active) {
       drawables.push({ y: State.ghost.player.y + 10, draw: () => drawSkier(State.ghost.player, { ghost: true }) });
     }
     drawables.push({ y: State.player.y + 10, draw: () => drawSkier() });
